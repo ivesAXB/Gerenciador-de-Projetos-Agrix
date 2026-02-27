@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
+import { toPng } from 'html-to-image';
 import { 
   Target, 
   TrendingUp, 
@@ -7,7 +8,8 @@ import {
   Upload, 
   FileSpreadsheet, 
   Plus, 
-  Loader2 
+  Loader2,
+  Download // <-- Ícone novo para o botão de exportar
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { processExcelFile } from "@/lib/excelProcessor";
@@ -37,13 +39,58 @@ const Index = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Âncora para a área que será exportada
+  const dashboardRef = useRef<HTMLDivElement>(null);
 
   // Encontra o projeto selecionado no array
   const currentProject = projects.find(p => p.id === selectedProjectId);
   const kpis = currentProject?.projectKPIs;
 
-  // --- Lógica de Drag & Drop e Upload ---
+  // --- Função Mágica de Exportação ---
+  // --- Função Mágica de Exportação (Nova Versão) ---
+  const handleExportDashboard = async () => {
+    if (!dashboardRef.current || !currentProject) return;
 
+    setIsExporting(true);
+    toast({
+      title: "Gerando relatório...",
+      description: "Isso pode levar alguns segundos.",
+    });
+
+    try {
+      // O html-to-image é muito superior para ler Flexbox e Tailwind
+      const dataUrl = await toPng(dashboardRef.current, { 
+        quality: 1,
+        backgroundColor: "#ffffff",
+        pixelRatio: 2, // Garante a alta resolução (antigo scale: 2)
+      });
+      
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      const safeName = currentProject.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const dateStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+      link.download = `Relatorio_AgriX_${safeName}_${dateStr}.png`;
+      link.click();
+
+      toast({
+        title: "Sucesso!",
+        description: "Relatório exportado com sucesso. Verifique seus downloads.",
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Erro ao exportar",
+        description: "Não foi possível gerar a imagem do relatório.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // --- Lógica de Drag & Drop e Upload ---
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -92,16 +139,13 @@ const Index = () => {
       }
 
       setProjects(prev => {
-        // Remove duplicatas se o mesmo projeto for importado novamente (pelo ID ou Nome)
         const filtered = prev.filter(p => !newProjects.some(np => np.name === p.name));
         return [...filtered, ...newProjects];
       });
 
-      // Se for o primeiro projeto, seleciona ele automaticamente
       if (!selectedProjectId && newProjects.length > 0) {
         setSelectedProjectId(newProjects[0].id);
       } else if (newProjects.length === 1) {
-        // Se já tem projeto mas importou um novo, muda o foco para o novo
         setSelectedProjectId(newProjects[0].id);
       }
 
@@ -124,7 +168,7 @@ const Index = () => {
 
   // --- Renderização ---
 
-  // Tela Vazia (Nenhum projeto importado)
+  // Tela Vazia
   if (projects.length === 0) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -169,12 +213,12 @@ const Index = () => {
     );
   }
 
-  // Dashboard (Quando tem projetos)
+  // Dashboard Preenchido
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         
-        {/* Top Bar: Seletor e Nova Importação */}
+        {/* Top Bar: Seletor e Botões */}
         <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
           <div className="flex items-center gap-4 w-full sm:w-auto">
             <div className="bg-primary/10 p-2 rounded-lg">
@@ -197,21 +241,39 @@ const Index = () => {
             </div>
           </div>
 
-          <div className="relative w-full sm:w-auto">
-            <Button variant="outline" className="w-full gap-2">
-              <Plus className="w-4 h-4" /> Importar Outro
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            {/* NOVO BOTÃO DE EXPORTAR */}
+            <Button 
+              variant="default" 
+              className="w-full sm:w-auto gap-2"
+              onClick={handleExportDashboard}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Exportar Relatório
             </Button>
-            <input 
-              type="file" 
-              accept=".xlsx, .xls"
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              onChange={handleFileInput}
-            />
+
+            <div className="relative w-full sm:w-auto">
+              <Button variant="outline" className="w-full gap-2">
+                <Plus className="w-4 h-4" /> Importar Outro
+              </Button>
+              <input 
+                type="file" 
+                accept=".xlsx, .xls"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={handleFileInput}
+              />
+            </div>
           </div>
         </div>
 
         {currentProject && kpis ? (
-          <div className="space-y-8 animate-in fade-in duration-500">
+          // === INÍCIO DA ÁREA DE CAPTURA DO RELATÓRIO ===
+          <div ref={dashboardRef} className="space-y-8 bg-white p-6 rounded-xl text-slate-900" style={{ backgroundColor: "#ffffff" }}>
             {/* Header do Projeto */}
             <ProjectHeader client={currentProject} />
 
@@ -263,7 +325,7 @@ const Index = () => {
                 />
               </div>
 
-              {/* Legenda Manual (Caso o gráfico não tenha) */}
+              {/* Legenda Manual */}
               <div className="mt-6 flex flex-wrap gap-6 justify-center text-sm">
                 <div className="flex items-center gap-2">
                   <div className="h-3 w-8 rounded bg-primary/80" />
@@ -299,6 +361,7 @@ const Index = () => {
               <p className="text-xs mt-1 opacity-70">Dados importados em {new Date().toLocaleDateString()}</p>
             </div>
           </div>
+          // === FIM DA ÁREA DE CAPTURA ===
         ) : (
           <div className="text-center py-20 text-muted-foreground">
             Erro ao carregar dados do projeto selecionado.
