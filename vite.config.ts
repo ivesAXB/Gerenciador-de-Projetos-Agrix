@@ -5,6 +5,10 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // === ADICIONE ESTA LINHA AQUI ===
+  // Atenção: As barras no começo e no final são obrigatórias!
+  base: "/Gerenciador-de-Projetos-Agrix/", 
+  
   server: {
     host: "::",
     port: 8080,
