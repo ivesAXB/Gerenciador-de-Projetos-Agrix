@@ -26,7 +26,7 @@ Focado na eficiência operacional e monitoramento de cronogramas do setor.
 ---
 
 ## 👥 Envolvidos
-- **Ives Botelho e Yago Rocha** — Líder de Desenvolvimento e Idealizador.
+- **Ives Botelho e Yago Rocha** — Líderança de Desenvolvimento e Idealizador.
 - *João Paulo Gomes e Daniela Ludwig* - Diretor de Negócios e Coordenadora.
 
 ---
